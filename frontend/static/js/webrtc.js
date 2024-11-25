@@ -1,29 +1,17 @@
-class WebRTCManager {
-    constructor() {
-        this.peerConnections = {};
-        this.setupWebRTC();
-    }
+let localStream;
+const peerConnections = {};
 
-    async setupWebRTC() {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: true,
-                audio: true
-            });
-            this.handleStream(stream);
-        } catch (error) {
-            console.error('Error accessing media devices:', error);
-        }
-    }
-
-    handleStream(stream) {
-        const remoteVideos = document.getElementById('remoteVideos');
-        const videoElement = document.createElement('video');
-        videoElement.srcObject = stream;
-        videoElement.autoplay = true;
-        videoElement.muted = true;
-        remoteVideos.appendChild(videoElement);
+async function initializeWebRTC() {
+    try {
+        localStream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: true
+        });
+        document.getElementById("localVideo").srcObject = localStream;
+    } catch (err) {
+        console.error("Error accessing media devices:", err);
+        updateDebugInfo("Error accessing camera/mic");
     }
 }
 
-const webrtcManager = new WebRTCManager();
+initializeWebRTC();

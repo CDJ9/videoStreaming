@@ -1,428 +1,46 @@
 <!DOCTYPE html>
 <html>
-  <head>
+<head>
     <title>Video Sync Room</title>
-    <style>
-      .container {
-        display: grid;
-        grid-template-columns: 70% 30%;
-        gap: 20px;
-        padding: 20px;
-      }
-      .video-container {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-      }
-      #remoteVideos {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 10px;
-      }
-      .remote-video {
-        width: 100%;
-        max-width: 300px;
-        background: #000;
-      }
-      #youtubePlayer {
-        width: 100%;
-        aspect-ratio: 16/9;
-      }
-      .controls {
-        padding: 10px;
-        background: #f5f5f5;
-        border-radius: 5px;
-        margin-bottom: 10px;
-      }
-      .search-results {
-        max-height: 300px;
-        overflow-y: auto;
-      }
-      .video-item {
-        padding: 10px;
-        cursor: pointer;
-        border-bottom: 1px solid #ddd;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-      }
-      .video-item:hover {
-        background: #f0f0f0;
-      }
-      #localVideo {
-        width: 200px;
-        margin-bottom: 10px;
-      }
-      .debug-info {
-        font-size: 12px;
-        color: #666;
-        margin-top: 5px;
-      }
-    </style>
-  </head>
-  <body>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="stylesheet" href="/static/css/video.css">
+</head>
+<body>
     <div class="container">
-      <div class="video-container">
-        <div class="controls">
-          <input type="text" id="roomInput" placeholder="Enter room code" />
-          <button onclick="createRoom()">Create Room</button>
-          <button onclick="joinRoom()">Join Room</button>
-          <div id="roomInfo"></div>
-          <div id="syncInfo" class="debug-info"></div>
+        <div class="video-container">
+            <div class="controls">
+                <input type="text" id="roomInput" placeholder="Enter room code">
+                <button onclick="createRoom()">Create Room</button>
+                <button onclick="joinRoom()">Join Room</button>
+            </div>
+            <div id="roomInfo"></div>
+            <div id="syncInfo" class="debug-info"></div>
+
+            <div class="controls">
+                <input type="text" id="searchInput" placeholder="Search YouTube videos...">
+                <button onclick="searchVideos()">Search</button>
+            </div>
+
+            <!-- YouTube Player Container -->
+            <div id="youtubePlayer"></div>
+            
+            <!-- Search Results -->
+            <div id="searchResults" class="search-results"></div>
         </div>
-        <div class="controls">
-          <input
-            type="text"
-            id="searchInput"
-            placeholder="Search YouTube videos..."
-          />
-          <button onclick="searchVideos()">Search</button>
+
+        <div class="video-chat">
+            <video id="localVideo" autoplay muted playsinline></video>
+            <div id="remoteVideos"></div>
         </div>
-        <div id="youtubePlayer"></div>
-        <div class="search-results" id="searchResults"></div>
-      </div>
-      <div class="video-chat">
-        <video id="localVideo" autoplay muted playsinline></video>
-        <div id="remoteVideos"></div>
-      </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.4.1/socket.io.js"></script>
-    <script>
-      // Your YouTube API key - Replace this with your actual API key
-      const YOUTUBE_API_KEY = "AIzaSyBw25yHvV8FMBtdX2x2wkppk4B5TcpMjHA";
 
-      // Constants for sync
-      const SYNC_THRESHOLD = 0.5; // Half a second threshold
-      const SYNC_INTERVAL = 2000; // Sync every 2 seconds
-
-      // Socket.io connection
-      const socket = io("http://localhost:8000", {
-        withCredentials: true,
-        transports: ["websocket"],
-      });
-
-      let player;
-      let currentRoom = null;
-      let localStream;
-      const peerConnections = {};
-      let isStateChange = false;
-      let lastSyncTime = 0;
-      let syncInterval;
-      let isLeader = false;
-      let syncAttempts = 0;
-      const MAX_SYNC_ATTEMPTS = 3;
-      const STRICT_SYNC_THRESHOLD = 0.1; // 100ms threshold
-      const SYNC_CHECK_INTERVAL = 1000; // Check every second
-
-      // Add this function to handle leader assignment
-      function assignLeader(sid) {
-        isLeader = sid === socket.id;
-        updateDebugInfo(`Role: ${isLeader ? "Leader" : "Follower"}`);
-        // Show leader status in UI
-        document.getElementById("roomInfo").textContent += ` (${
-          isLeader ? "Leader" : "Follower"
-        })`;
-      }
-      // Debug listeners
-      socket.on("connect", () => {
-        console.log("Connected to server");
-        updateDebugInfo("Connected to server");
-      });
-
-      socket.on("connect_error", (error) => {
-        console.error("Connection error:", error);
-        updateDebugInfo("Connection error: " + error.message);
-      });
-
-      function updateDebugInfo(message) {
-        const syncInfo = document.getElementById("syncInfo");
-        syncInfo.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
-      }
-
-      // Initialize YouTube IFrame API
-      const tag = document.createElement("script");
-      tag.src = "https://www.youtube.com/iframe_api";
-      const firstScriptTag = document.getElementsByTagName("script")[0];
-      firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-
-      function onYouTubeIframeAPIReady() {
-        player = new YT.Player("youtubePlayer", {
-          height: "390",
-          width: "640",
-          videoId: "",
-          playerVars: {
-            playsinline: 1,
-            controls: 1,
-          },
-          events: {
-            onReady: onPlayerReady,
-            onStateChange: onPlayerStateChange,
-          },
-        });
-      }
-
-      function onPlayerReady(event) {
-        console.log("YouTube player ready");
-        updateDebugInfo("YouTube player ready");
-        startVideoSync();
-      }
-
-      function startVideoSync() {
-        if (syncInterval) clearInterval(syncInterval);
-        syncInterval = setInterval(() => {
-          if (currentRoom && player && player.getPlayerState) {
-            sendVideoState();
-          }
-        }, SYNC_INTERVAL);
-      }
-
-      // Update the sendVideoState function
-      function sendVideoState() {
-        if (!isLeader) return; // Only leader sends regular updates
-
-        const state = player.getPlayerState();
-        const currentTime = player.getCurrentTime();
-        const timestamp = Date.now();
-
-        if (timestamp - lastSyncTime > 500) {
-          lastSyncTime = timestamp;
-          socket.emit("video_state_change", {
-            roomId: currentRoom,
-            state: state === 1 ? "playing" : "paused",
-            currentTime: currentTime,
-            timestamp: timestamp,
-            playbackRate: player.getPlaybackRate(),
-          });
-        }
-      }
-
-      function onPlayerStateChange(event) {
-        if (!isStateChange && currentRoom && isLeader) {
-          const state =
-            event.data === YT.PlayerState.PLAYING ? "playing" : "paused";
-
-          if (event.data === YT.PlayerState.BUFFERING) {
-            socket.emit("video_buffering", {
-              roomId: currentRoom,
-              currentTime: player.getCurrentTime(),
-              state: state,
-            });
-            updateDebugInfo("Buffering...");
-          } else {
-            sendVideoState();
-            updateDebugInfo(`State changed to: ${state}`);
-          }
-        }
-        isStateChange = false;
-      }
-
-      // Update the createRoom function to assign leader
-      function createRoom() {
-        currentRoom = Math.random().toString(36).substring(7);
-        isLeader = true; // Room creator is leader
-        joinRoom();
-      }
-
-      function joinRoom() {
-        const roomId =
-          currentRoom || document.getElementById("roomInput").value;
-        if (!roomId) {
-          alert("Please enter a room ID");
-          return;
-        }
-        currentRoom = roomId;
-        console.log("Joining room:", roomId);
-        socket.emit("join_room", { roomId });
-        document.getElementById("roomInfo").textContent = `Room: ${roomId}`;
-        updateDebugInfo(`Joined room: ${roomId}`);
-      }
-
-      async function searchVideos() {
-        const query = document.getElementById("searchInput").value;
-        const response = await fetch("http://localhost:8000/search-youtube", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            query: query,
-            api_key: YOUTUBE_API_KEY,
-          }),
-        });
-
-        const data = await response.json();
-        displaySearchResults(data.items);
-      }
-
-      function displaySearchResults(videos) {
-        const resultsDiv = document.getElementById("searchResults");
-        resultsDiv.innerHTML = "";
-
-        videos.forEach((video) => {
-          const videoDiv = document.createElement("div");
-          videoDiv.className = "video-item";
-          videoDiv.innerHTML = `
-                    <img src="${video.snippet.thumbnails.default.url}" alt="${video.snippet.title}">
-                    <div>
-                        <h3>${video.snippet.title}</h3>
-                        <p>${video.snippet.description}</p>
-                    </div>
-                `;
-          videoDiv.onclick = () => changeVideo(video.id.videoId);
-          resultsDiv.appendChild(videoDiv);
-        });
-      }
-
-      // Update change video function
-      function changeVideo(videoId) {
-        if (!currentRoom) {
-          alert("Please join a room first!");
-          return;
-        }
-        if (!isLeader) {
-          alert("Only the room leader can change videos");
-          return;
-        }
-
-        console.log("Changing video to:", videoId);
-        updateDebugInfo(`Changing video to: ${videoId}`);
-        player.loadVideoById(videoId);
-        socket.emit("change_video", {
-          roomId: currentRoom,
-          videoId: videoId,
-        });
-      }
-
-      // Socket event handlers
-      socket.on("room_state", (data) => {
-        if (data.current_video) {
-          isStateChange = true;
-          player.loadVideoById(data.current_video);
-          if (data.video_state === "playing") {
-            player.seekTo(data.current_time);
-            player.playVideo();
-          } else {
-            player.seekTo(data.current_time);
-            player.pauseVideo();
-          }
-          updateDebugInfo(
-            `Received room state: ${data.video_state} at ${data.current_time}`
-          );
-        }
-      });
-
-      // Add these socket listeners for leader management
-      socket.on("user_joined", (data) => {
-        if (isLeader) {
-          // Leader immediately sends current state to new user
-          sendVideoState();
-        }
-      });
-
-      // Update the video_state_updated handler for stricter sync
-      socket.on("video_state_updated", (data) => {
-        if (!player || !player.seekTo) return;
-        if (isLeader) return; // Leader doesn't sync to others
-
-        isStateChange = true;
-        const currentTime = player.getCurrentTime();
-        const receivedTime = data.currentTime;
-        const timeDiff = Math.abs(currentTime - receivedTime);
-
-        // Network delay compensation
-        const networkDelay = data.timestamp
-          ? (Date.now() - data.timestamp) / 1000
-          : 0;
-        const compensatedTime =
-          receivedTime + (data.state === "playing" ? networkDelay : 0);
-
-        updateDebugInfo(
-          `Sync diff: ${timeDiff.toFixed(3)}s, Delay: ${networkDelay.toFixed(
-            3
-          )}s`
-        );
-
-        // Strict sync for followers
-        if (timeDiff > STRICT_SYNC_THRESHOLD) {
-          console.log(
-            `Strict sync: local=${currentTime}, target=${compensatedTime}`
-          );
-
-          // Always seek to exact time for followers
-          player.seekTo(compensatedTime, true);
-
-          // Match leader's playback rate
-          if (data.playbackRate) {
-            player.setPlaybackRate(data.playbackRate);
-          }
-
-          // Verify sync after seeking
-          setTimeout(() => {
-            verifySyncAccuracy(compensatedTime);
-          }, 200);
-        }
-
-        // Handle play/pause state
-        if (data.state === "playing" && player.getPlayerState() !== 1) {
-          player.playVideo();
-        } else if (data.state === "paused" && player.getPlayerState() === 1) {
-          player.pauseVideo();
-        }
-      });
-
-      socket.on("video_changed", (data) => {
-        console.log("Video changed:", data);
-        updateDebugInfo(`Video changed to: ${data.videoId}`);
-        if (player && player.loadVideoById) {
-          player.loadVideoById(data.videoId);
-        }
-      });
-
-      socket.on("video_buffering", (data) => {
-        if (currentRoom && player) {
-          isStateChange = true;
-          player.pauseVideo();
-          updateDebugInfo("Remote user buffering...");
-          setTimeout(() => {
-            if (data.state === "playing") {
-              player.seekTo(data.currentTime);
-              player.playVideo();
-            }
-          }, 1000);
-        }
-      });
-
-      // Add function to verify sync accuracy
-      function verifySyncAccuracy(targetTime) {
-        if (isLeader || syncAttempts >= MAX_SYNC_ATTEMPTS) return;
-
-        const currentTime = player.getCurrentTime();
-        const timeDiff = Math.abs(currentTime - targetTime);
-
-        if (timeDiff > STRICT_SYNC_THRESHOLD) {
-          syncAttempts++;
-          player.seekTo(targetTime, true);
-          setTimeout(() => verifySyncAccuracy(targetTime), 200);
-        } else {
-          syncAttempts = 0;
-        }
-      }
-      // Initialize WebRTC
-      async function initializeWebRTC() {
-        try {
-          localStream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-            audio: true,
-          });
-          document.getElementById("localVideo").srcObject = localStream;
-        } catch (err) {
-          console.error("Error accessing media devices:", err);
-          updateDebugInfo("Error accessing camera/mic");
-        }
-      }
-
-      initializeWebRTC();
-    </script>
-  </body>
+    <script src="/static/js/config.js"></script>
+    <script src="/static/js/video.js"></script>
+    <script src="/static/js/room.js"></script>
+    <script src="/static/js/webrtc.js"></script>
+</body>
 </html>
