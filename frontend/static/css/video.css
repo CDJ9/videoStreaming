@@ -91,3 +91,23 @@
     aspect-ratio: 16/9;
     background: #000;
 }
+
+/* Added from styles.css */
+.video-item {
+    box-shadow: var(--card-shadow);
+    transition: transform var(--transition-speed);
+}
+
+.video-item:hover {
+    background: var(--background-color);
+    transform: translateY(-2px);
+}
+
+#youtubePlayer iframe {
+    border-radius: var(--border-radius);
+}
+
+.search-results {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: var(--spacing-unit);
+}

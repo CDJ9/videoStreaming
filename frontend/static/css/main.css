@@ -59,3 +59,56 @@ input[type="text"] {
     color: #666;
     margin-top: 5px;
 }
+
+/* Add these to your existing main.css */
+.header {
+    background: white;
+    padding: 10px 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.user-info {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 20px;
+}
+
+.logout-btn {
+    padding: 8px 16px;
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.logout-btn:hover {
+    background-color: #c82333;
+}
+
+#username {
+    font-weight: 500;
+    color: #333;
+}
+
+/* Added from styles.css */
+.container {
+    box-shadow: var(--card-shadow);
+}
+
+input[type="text"]:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(255, 87, 34, 0.1);
+}
+
+.header {
+    background: var(--secondary-color);
+    color: white;
+    box-shadow: var(--card-shadow);
+}
+
+.logout-btn:hover {
+    background-color: var(--primary-dark);
+}

@@ -1,0 +1,101 @@
+.auth-container {
+    max-width: 400px;
+    margin: 50px auto;
+    padding: 20px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.auth-form {
+    padding: 20px;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    color: #333;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+.error {
+    color: #dc3545;
+    font-size: 14px;
+    margin-top: 10px;
+    display: none;
+}
+
+button {
+    width: 100%;
+    padding: 10px;
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #0056b3;
+}
+
+.auth-form h2 {
+    margin: 0 0 20px;
+    color: #333;
+}
+
+.auth-form p {
+    margin-top: 15px;
+    text-align: center;
+}
+
+.auth-form a {
+    color: #007bff;
+    text-decoration: none;
+}
+
+.auth-form a:hover {
+    text-decoration: underline;
+}
+
+/* Added from styles.css */
+:root {
+    --primary-color: #ff5722;
+    --primary-dark: #892507;
+    --secondary-color: #333;
+    --background-color: #f5f5f5;
+    --text-color: #333;
+    --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    --transition-speed: 0.3s;
+    --border-radius: 8px;
+    --spacing-unit: 1rem;
+}
+
+button {
+    background-color: var(--primary-color);
+    transition: background-color var(--transition-speed);
+}
+
+button:hover {
+    background-color: var(--primary-dark);
+}
+
+input[type="text"]:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(255, 87, 34, 0.1);
+}
+
+.auth-container {
+    box-shadow: var(--card-shadow);
+}
