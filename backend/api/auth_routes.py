@@ -88,7 +88,7 @@ async def get_user_me(db: Session = Depends(get_db), token: str = Depends(OAuth2
         }
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token has expired")
-    except jwt.JWTError:
+    except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="Could not validate token")
 
 @router.post("/logout")
